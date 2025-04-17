@@ -45,6 +45,9 @@ median_filter = 0;
 save_file = None;
 save_format = None;
 
+linear_axis = False;
+light_theme = False;
+
 connected_device = "CurrentRanger"
 
 class CRPlot:
@@ -100,10 +103,16 @@ class CRPlot:
         logging.debug("pause {}".format(state))
         self.pause_chart = not self.pause_chart
         if self.pause_chart:
-            self.ax.set_title('<Paused>', color="yellow")
+            if not light_theme:
+                self.ax.set_title('<Paused>', color="yellow")
+            else:
+                self.ax.set_title('<Paused>')
             self.bpause.label.set_text('Resume')
         else:
-            self.ax.set_title(f"Streaming: {connected_device}", color="white")
+            if not light_theme:
+                self.ax.set_title(f"Streaming: {connected_device}", color="white")
+            else:
+                self.ax.set_title(f"Streaming: {connected_device}")
             self.bpause.label.set_text('Pause')
 
     def saveAnimation(self, state):
@@ -122,26 +131,42 @@ class CRPlot:
         self.bsave.label.set_text('GIF')
 
     def chartSetup(self, refresh_interval=100):
-        plt.style.use('dark_background')
+        if not light_theme:
+            plt.style.use('dark_background')
         fig = plt.figure(num=f"Current Viewer {version}", figsize=(10, 6))
         self.ax = plt.axes()
         ax = self.ax
 
-        ax.set_title(f"Streaming: {connected_device}", color="white")
-
-        fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
-        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        if not light_theme:
+            ax.set_title(f"Streaming: {connected_device}", color="white")
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        else:
+            ax.set_title(f"Streaming: {connected_device}")
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
 
         ax.set_ylabel("Current draw (Amps)")
-        ax.set_yscale("log", nonpositive='clip')
-        ax.set_ylim(1e-10, 1e1)
-        plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
-        ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
+        if not linear_axis:
+            ax.set_yscale("log", nonpositive='clip')
+            ax.set_ylim(1e-10, 1e1)
+            plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
+        else:
+            ax.set_ylim(0e-3, 1000e-3)
+            plt.yticks([100e-3, 200e-3, 300e-3, 400e-3, 500e-3, 600e-3, 700e-3, 800e-3, 900e-3, 1000e-3], ['100mA', '200mA', '300mA', '400mA', '500mA', '600mA', '700mA', '800mA', '900mA', '1000mA'], rotation=0)
+
+        if not light_theme:
+            ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
+        else:
+            ax.grid(axis="y", which="both", alpha=.3, linewidth=.5)
 
         ax.set_xlabel("Time")
         plt.xticks(rotation=20)
         ax.set_xlim(datetime.now(), datetime.now() + timedelta(seconds=10))
-        ax.grid(axis="x", color="green", alpha=.4, linewidth=2, linestyle=":")
+        if not light_theme:
+            ax.grid(axis="x", color="green", alpha=.4, linewidth=2, linestyle=":")
+        else:
+            ax.grid(axis="x", alpha=.3, linewidth=1, linestyle=":")
 
         #ax.xaxis.set_major_locator(SecondLocator())
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
@@ -168,14 +193,21 @@ class CRPlot:
         plt.legend(loc="upper right", framealpha=0.5)
 
         apause = plt.axes([0.91, 0.15, 0.08, 0.07])
-        self.bpause = Button(apause, label='Pause', color='0.2', hovercolor='0.1')
+        if not light_theme:
+            self.bpause = Button(apause, label='Pause', color='0.2', hovercolor='0.1')
+            self.bpause.label.set_color('yellow')
+        else:
+            self.bpause = Button(apause, label='Pause')
         self.bpause.on_clicked(self.pauseRefresh)
-        self.bpause.label.set_color('yellow')
 
         aanimation = plt.axes([0.91, 0.25, 0.08, 0.07])
-        self.bsave = Button(aanimation, 'GIF', color='0.2', hovercolor='0.1')
+        if not light_theme:
+            self.bsave = Button(aanimation, 'GIF', color='0.2', hovercolor='0.1')
+            self.bsave.label.set_color('yellow')
+        else:
+            self.bsave = Button(aanimation, 'GIF')
         self.bsave.on_clicked(self.saveAnimation)
-        self.bsave.label.set_color('yellow')
+        
 
         crs = mplcursors.cursor(ax, hover=True)
         @crs.connect("add")
@@ -398,6 +430,9 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: 1Mb)")
     parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name (default:{logfile})")
 
+    parser.add_argument("--linear", default=False, action="store_true", help="Use a linear y-axis")
+    parser.add_argument("--light", default=False, action="store_true", help="Use the light theme")
+
     parser.set_defaults(gui=True)
     return parser
 
@@ -457,6 +492,13 @@ def main():
         console_logger.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
         logging.getLogger().addHandler(console_logger)
 
+    if args.linear:
+        global linear_axis
+        linear_axis = True
+    
+    if args.light:
+        global light_theme
+        light_theme = True
 
     global save_file
     global save_format
