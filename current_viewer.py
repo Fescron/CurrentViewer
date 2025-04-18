@@ -19,6 +19,7 @@ from matplotlib.widgets import Button
 from datetime import datetime, timedelta
 from threading import Thread
 from os import path
+from matplotlib.ticker import EngFormatter
 
 version = '1.0.7'
 
@@ -45,8 +46,9 @@ median_filter = 0;
 save_file = None;
 save_format = None;
 
-linear_axis = False;
+linear_current_axis = False;
 light_theme = False;
+autoscale_current = True
 
 connected_device = "CurrentRanger"
 
@@ -129,6 +131,16 @@ class CRPlot:
         logging.info("Animation saved to '{}'".format(filename))
         self.anim.save(filename, writer='imagemagick', fps=self.framerate)
         self.bsave.label.set_text('GIF')
+    
+    def toggle_autoscale_current(self, state):
+        global autoscale_current
+        autoscale_current = not autoscale_current
+        if autoscale_current:
+            self.b_autoscale_current.label.set_text('Manual\nCurr. Scale')
+        else:
+            self.b_autoscale_current.label.set_text('Automatic\nCurr. Scale')
+        toolbar = plt.get_current_fig_manager().toolbar
+        toolbar.zoom() # Select the zoom tool
 
     def chartSetup(self, refresh_interval=100):
         if not light_theme:
@@ -146,14 +158,14 @@ class CRPlot:
             fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
             fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
 
-        ax.set_ylabel("Current draw (Amps)")
-        if not linear_axis:
+        ax.set_ylabel("Current")
+        currentFormatter = EngFormatter(unit='A')
+        ax.yaxis.set_major_formatter(currentFormatter)
+        if not linear_current_axis:
             ax.set_yscale("log", nonpositive='clip')
             ax.set_ylim(1e-10, 1e1)
-            plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
-        else:
-            ax.set_ylim(0e-3, 1000e-3)
-            plt.yticks([100e-3, 200e-3, 300e-3, 400e-3, 500e-3, 600e-3, 700e-3, 800e-3, 900e-3, 1000e-3], ['100mA', '200mA', '300mA', '400mA', '500mA', '600mA', '700mA', '800mA', '900mA', '1000mA'], rotation=0)
+            # plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
+            ax.yaxis.set_minor_formatter(currentFormatter)
 
         if not light_theme:
             ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
@@ -207,7 +219,15 @@ class CRPlot:
         else:
             self.bsave = Button(aanimation, 'GIF')
         self.bsave.on_clicked(self.saveAnimation)
-        
+
+        if linear_current_axis:
+            a_autoscale_current = plt.axes([0.91, 0.35, 0.08, 0.07])
+            if not light_theme:
+                self.b_autoscale_current = Button(a_autoscale_current, 'Manual\nCurr. Scale', color='0.2', hovercolor='0.1')
+                self.b_autoscale_current.label.set_color('yellow')
+            else:
+                self.b_autoscale_current = Button(a_autoscale_current, 'Manual\nCurr. Scale')
+            self.b_autoscale_current.on_clicked(self.toggle_autoscale_current)
 
         crs = mplcursors.cursor(ax, hover=True)
         @crs.connect("add")
@@ -342,6 +362,8 @@ class CRPlot:
 
 
     def getSerialData(self, frame, lines, legend, lastText):
+        global autoscale_current
+
         if (self.pause_chart or len(self.data) < 2):
             lastText.set_text('')
             return
@@ -384,6 +406,9 @@ class CRPlot:
         else:
             lastText.set_color("red")
 
+        if autoscale_current and linear_current_axis:
+            self.ax.relim()
+            self.ax.set_ylim(bottom=0, top=max(samples) * 1.1)
 
         logging.debug("Drawing chart: range {}@{} .. {}@{}".format(samples[0], timestamps[0], samples[-1], timestamps[-1]))
         lines.set_data(timestamps, samples)
@@ -430,7 +455,7 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: 1Mb)")
     parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name (default:{logfile})")
 
-    parser.add_argument("--linear", default=False, action="store_true", help="Use a linear y-axis")
+    parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
     parser.add_argument("--light", default=False, action="store_true", help="Use the light theme")
 
     parser.set_defaults(gui=True)
@@ -493,8 +518,8 @@ def main():
         logging.getLogger().addHandler(console_logger)
 
     if args.linear:
-        global linear_axis
-        linear_axis = True
+        global linear_current_axis
+        linear_current_axis = True
     
     if args.light:
         global light_theme
