@@ -120,17 +120,27 @@ class CRPlot:
     def saveAnimation(self, state):
         logging.debug("save {}".format(state))
 
-        self.bsave.label.set_text('Saving...')
-        plt.gcf().canvas.draw()
-        filename = None
-        while True:
-            filename = 'current' + str(self.animation_index) + '.gif'
-            self.animation_index += 1
-            if not path.exists(filename):
-                break
-        logging.info("Animation saved to '{}'".format(filename))
-        self.anim.save(filename, writer='imagemagick', fps=self.framerate)
-        self.bsave.label.set_text('GIF')
+        def save_gif():
+            self.bsave.label.set_text('Saving...')
+            plt.gcf().canvas.draw()
+            filename = None
+            while True:
+                filename = 'current' + str(self.animation_index) + '.gif'
+                self.animation_index += 1
+                if not path.exists(filename):
+                    break
+            try:
+                logging.info("Animation saving started to '{}'".format(filename))
+                self.anim.save(filename, writer='imagemagick', fps=self.framerate)
+                logging.info("Animation saved to '{}'".format(filename))
+            except Exception as e:
+                logging.error(f"Failed to save animation: {e}")
+            finally:
+                self.bsave.label.set_text('GIF')
+                plt.gcf().canvas.draw()
+
+        # Run the save operation in a separate thread
+        Thread(target=save_gif, daemon=True).start()
     
     def toggle_autoscale_current(self, state):
         global autoscale_current
