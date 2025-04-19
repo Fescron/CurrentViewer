@@ -151,7 +151,7 @@ class CRPlot:
 
         if not light_theme:
             ax.set_title(f"Streaming: {connected_device}", color="white")
-            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.7)
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
             fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
         else:
             ax.set_title(f"Streaming: {connected_device}")
@@ -444,7 +444,7 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file> in the format set by --format")
     parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV, JSON")
 
-    parser.add_argument("--gui", dest="gui", action="store_true", default=True, help="Display the GUI / Interactive chart (default: ON)")
+    # parser.add_argument("--gui", dest="gui", action="store_true", default=True, help="Display the GUI / Interactive chart (default: ON)")
     parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
 
     parser.add_argument("-b", "--buffer", metavar='<samples>', type=int, nargs=1, help=f"Set the chart buffer size (window size) in # of samples (default: {buffer_max_samples})")
