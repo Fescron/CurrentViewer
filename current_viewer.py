@@ -48,6 +48,7 @@ save_format = None;
 linear_current_axis = False;
 light_theme = False;
 autoscale_current = True
+chart_length_s = 0
 
 connected_device = "CurrentRanger"
 
@@ -183,11 +184,12 @@ class CRPlot:
         ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
 
         def on_xlims_change(event_ax):
+            global chart_length_s
             logging.debug("Interactive zoom: {} .. {}".format(num2date(event_ax.get_xlim()[0]), num2date(event_ax.get_xlim()[1])))
 
-            chart_len = num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])
+            chart_length_s = (num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])).total_seconds()
 
-            if chart_len.total_seconds() < 5:
+            if chart_length_s < 5:
                 self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
             else:
                 self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
@@ -411,7 +413,7 @@ class CRPlot:
 
         logging.debug("Drawing chart: range {}@{} .. {}@{}".format(samples[0], timestamps[0], samples[-1], timestamps[-1]))
         lines.set_data(timestamps, samples)
-        self.ax.legend(labels=['Last: {}\nAvg: {}'.format( self.textAmp(samples[-1]), self.textAmp(sum(samples)/len(samples)))])
+        self.ax.legend(labels=['Last: {}\nAvg.: {}\nTime: {:.2f} s'.format( self.textAmp(samples[-1]), self.textAmp(sum(samples)/len(samples)), round(chart_length_s, 2))])
 
 
     def isStreaming(self) -> bool:
