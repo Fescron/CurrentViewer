@@ -450,6 +450,40 @@ class CRPlot:
         logging.info("Connection closed.")
 
 
+def plot_from_file(file_path):
+    """Plots data from an existing CSV file."""
+    try:
+        # Read the CSV file
+        data = pd.read_csv(file_path, parse_dates=[0])
+        timestamps = pd.to_datetime(data.iloc[:, 0])
+        currents = data.iloc[:, 1]
+
+        # Set up the plot
+        if not light_theme:
+            plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(timestamps, currents, label="Current")
+
+        ax.set_title(f"Current Viewer - File: {file_path}")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Current (A)")
+        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+        ax.legend(loc="upper right", framealpha=0.5)
+
+        if not light_theme:
+            ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
+        else:
+            ax.grid(axis="y", which="both", alpha=.3, linewidth=.5)
+
+        plt.xticks(rotation=20)
+        plt.tight_layout()
+        plt.show()
+
+    except Exception as e:
+        logging.error(f"Failed to plot from file '{file_path}': {e}")
+        print(f"Error: Could not plot data from file '{file_path}'. Check the logs for details.", file=sys.stderr)
+
+
 def init_argparse() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         usage="%(prog)s -p <port> [OPTION]",
@@ -457,7 +491,8 @@ def init_argparse() -> argparse.ArgumentParser:
     )
 
     parser.add_argument("--version", action="version", version = f"{parser.prog} version {version}")
-    parser.add_argument("-p", "--port", nargs=1, required=True, help="Set the serial port (backed by USB or BlueTooth) to connect to (example: /dev/ttyACM0 or COM3)")
+    parser.add_argument("-p", "--port", nargs=1, help="Set the serial port (backed by USB or BlueTooth) to connect to (example: /dev/ttyACM0 or COM3)")
+    parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
 
     parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file> in the format set by --format")
@@ -488,6 +523,16 @@ def main():
 
     parser = init_argparse()
     args = parser.parse_args()
+
+    # Handle the --input argument
+    if args.input:
+        file_path = args.input[0]
+        if not path.exists(file_path):
+            print(f"Error: File '{file_path}' does not exist.", file=sys.stderr)
+            return -1
+        print(f"Plotting data from file: {file_path}")
+        plot_from_file(file_path)
+        return 0
 
     if args.log_file:
         logfile = args.log_file[0]
