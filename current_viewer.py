@@ -160,12 +160,12 @@ class CRPlot:
 
         ax.set_ylabel("Current")
         currentFormatter = EngFormatter(unit='A')
-        ax.yaxis.set_major_formatter(currentFormatter)
         if not linear_current_axis:
             ax.set_yscale("log", nonpositive='clip')
             ax.set_ylim(1e-10, 1e1)
             # plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
             ax.yaxis.set_minor_formatter(currentFormatter)
+        ax.yaxis.set_major_formatter(currentFormatter)
 
         if not light_theme:
             ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
@@ -201,7 +201,7 @@ class CRPlot:
 
         lastText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
         statusText = ax.text(0.50, 0.50, '', transform=ax.transAxes)
-        self.anim = animation.FuncAnimation(fig, self.getSerialData, fargs=(lines, plt.legend(), lastText), interval=refresh_interval)
+        self.anim = animation.FuncAnimation(fig, self.getSerialData, fargs=(lines, plt.legend(), lastText), interval=refresh_interval, cache_frame_data=False)
 
         plt.legend(loc="upper right", framealpha=0.5)
 
