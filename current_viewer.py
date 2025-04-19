@@ -411,9 +411,15 @@ class CRPlot:
         sps = sps_samples/dt_sps if ((np.datetime64(datetime.now()) - self.timestamps[-1])/np.timedelta64(1, 's')) < 1 else 0.0
         lastText.set_text('{:.1f} SPS'.format(sps))
         if sps > 500:
-            lastText.set_color("white")
+            if light_theme:
+                lastText.set_color("black")
+            else:
+                lastText.set_color("white")
         elif sps > 100:
-            lastText.set_color("yellow")
+            if light_theme:
+                lastText.set_color("orange")
+            else:
+                lastText.set_color("yellow")
         else:
             lastText.set_color("red")
 
