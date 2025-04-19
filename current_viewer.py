@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Copyright (c) Marius Gheorghescu. All rights reserved.
+# Modifications added by Brecht Van Eeckhoudt
 # Licensed under the MIT license. See LICENSE file in the project root for full license information.
 import sys
 import time
@@ -21,7 +22,7 @@ from threading import Thread
 from os import path
 from matplotlib.ticker import EngFormatter
 
-version = '1.0.7'
+version = '1.0.8-BVE'
 
 port = ''
 baud = 115200
