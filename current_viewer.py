@@ -145,12 +145,15 @@ class CRPlot:
     def toggle_autoscale_current(self, state):
         global autoscale_current
         autoscale_current = not autoscale_current
+        toolbar = plt.get_current_fig_manager().toolbar
         if autoscale_current:
             self.b_autoscale_current.label.set_text('Manual\nCurr. Scale')
+            if toolbar.mode == "zoom rect":
+                toolbar.zoom() # Unselect the zoom tool
         else:
             self.b_autoscale_current.label.set_text('Automatic\nCurr. Scale')
-        toolbar = plt.get_current_fig_manager().toolbar
-        toolbar.zoom() # Select the zoom tool
+            if toolbar.mode != "zoom rect":
+                toolbar.zoom() # Select the zoom tool (because it is not already selected)
 
     def chartSetup(self, refresh_interval=100):
         if not light_theme:
