@@ -26,8 +26,6 @@ version = '1.0.7'
 port = ''
 baud = 115200
 
-logfile = 'current_viewer.log'
-
 refresh_interval = 66 # 66ms = 15fps
 
 # controls the window size (and memory usage). 100k samples = 3 minutes
@@ -451,9 +449,8 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-r", "--refresh", metavar='<ms>', type=int, nargs=1, help=f"Set the live chart refresh interval in milliseconds (default: {refresh_interval})")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase logging verbosity (can be specified multiple times)")
     parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages on the console")
-    parser.add_argument("-n", "--no-log", default=False, action="store_true", help=f"Disable debug logging (enabled by default)")
     parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: 1Mb)")
-    parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name (default:{logfile})")
+    parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name and start logging to it")
 
     parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
     parser.add_argument("--light", default=False, action="store_true", help="Use the light theme")
@@ -471,8 +468,11 @@ def main():
     args = parser.parse_args()
 
     if args.log_file:
-        global logfile
         logfile = args.log_file[0]
+        file_logger = RotatingFileHandler(logfile, maxBytes=log_size, backupCount=1)
+        file_logger.setLevel(logging.DEBUG)
+        file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
+        logging.getLogger().addHandler(file_logger)
 
     if args.log_size:
         log_size = 1024*1024*args.log_size[0]
@@ -501,14 +501,8 @@ def main():
     # disable matplotlib logging for fonts, seems to be quite noisy
     logging.getLogger('matplotlib.font_manager').disabled = True
 
-    if args.console or not args.no_log:
+    if args.console or args.log_file:
         logging.getLogger().setLevel(logging.DEBUG)
-
-    if not args.no_log:
-        file_logger = RotatingFileHandler(logfile, maxBytes=log_size, backupCount=1)
-        file_logger.setLevel(logging.DEBUG)
-        file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
-        logging.getLogger().addHandler(file_logger)
 
     if args.console:
         print("Setting console logging")
@@ -543,7 +537,7 @@ def main():
             logging.info(f"Save format automatically set to {save_format} for {args.out[0]}")
 
         if save_format == 'CSV':
-            save_file.write("Timestamp, Amps\n")
+            save_file.write("DateTime [YYYY-MM-DD HH:MM:SS.ms],Current [A]\n")
         elif save_format == 'JSON':
             save_file.write("{\n\"data\":[\n")
 
