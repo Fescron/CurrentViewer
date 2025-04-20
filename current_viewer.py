@@ -20,7 +20,7 @@ from matplotlib.widgets import Button
 from datetime import datetime, timedelta
 from threading import Thread
 from os import path
-from matplotlib.ticker import EngFormatter
+from matplotlib.ticker import EngFormatter, FuncFormatter
 
 
 version = "1.1.0-BVE"
@@ -554,10 +554,10 @@ def setup_plot_style(ax, fig, title):
         chart_length_s = (num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])).total_seconds()
 
         if chart_length_s < 5:
-            ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S.%f"))
+            ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: num2date(x).strftime("%H:%M:%S.%f").rstrip("0").rstrip(".")))
         else:
             ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
-            ax.xaxis.set_minor_formatter(DateFormatter("%H:%M:%S.%f"))
+            ax.xaxis.set_minor_formatter(FuncFormatter(lambda x, _: num2date(x).strftime("%H:%M:%S.%f").rstrip("0").rstrip(".")))
 
     ax.callbacks.connect("xlim_changed", on_xlims_change)
 
