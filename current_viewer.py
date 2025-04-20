@@ -49,6 +49,7 @@ linear_current_axis = False;
 light_theme = False;
 autoscale_current = True
 chart_length_s = 0
+hide_info_on_plot = True
 
 connected_device = "CurrentRanger"
 
@@ -396,12 +397,14 @@ class CRPlot:
 def setup_plot_style(ax, fig, title):
     if not light_theme:
         ax.set_title(title, color="white")
-        fig.text (0.2, 0.88, f"CurrentViewer {version}", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        if not hide_info_on_plot:
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
     else:
         ax.set_title(title)
-        fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        if not hide_info_on_plot:
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
 
     ax.set_ylabel("Current")
     currentFormatter = EngFormatter(unit='A')
