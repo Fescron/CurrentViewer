@@ -159,7 +159,7 @@ class CRPlot:
         if not light_theme:
             plt.style.use('dark_background')
 
-        fig = plt.figure(num=f"Current Viewer {version}", figsize=(10, 6))
+        fig = plt.figure(num=f"CurrentViewer {version}", figsize=(10, 6))
         self.ax = plt.axes()
         ax = self.ax
 
@@ -460,7 +460,7 @@ def plot_from_file(file_path):
 
         if not light_theme:
             plt.style.use('dark_background')
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(num=f"CurrentViewer {version}", figsize=(10, 6))
         ax.plot(timestamps, currents, label="Current")
         plt.legend(loc="upper right", framealpha=0.5)
 
