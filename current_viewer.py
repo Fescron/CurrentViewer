@@ -269,7 +269,7 @@ class CRPlot:
                     if save_format == 'CSV':
                         save_file.write(f"{ts},{data}\n")
                     elif save_format == 'JSON':
-                        save_file.write("{}{{\"time\":\"{}\",\"amps\":\"{}\"}}".format(',\n' if self.sample_count>1 else '', ts, data))
+                        save_file.write("{}{{\"time\":\"{}\",\"current\":\"{}\"}}".format(',\n' if self.sample_count>1 else '', ts, data))
 
                 if data < 0.0:
                     # this happens too often (negative values)
@@ -442,8 +442,6 @@ def setup_plot_style(ax, fig, title):
 
     ax.callbacks.connect('xlim_changed', on_xlims_change)
 
-    plt.legend(loc="upper right", framealpha=0.5)
-
 def textAmp(amp):
     if (abs(amp) > 1.0):
         return "{:.3f} A".format(amp)
@@ -464,6 +462,7 @@ def plot_from_file(file_path):
             plt.style.use('dark_background')
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(timestamps, currents, label="Current")
+        plt.legend(loc="upper right", framealpha=0.5)
 
         setup_plot_style(ax, fig, f"File: {file_path}")
 
@@ -488,11 +487,11 @@ def init_argparse() -> argparse.ArgumentParser:
 
     parser.add_argument("--version", action="version", version = f"{parser.prog} version {version}")
     parser.add_argument("-p", "--port", nargs=1, help="Set the serial port (backed by USB or BlueTooth) to connect to (example: /dev/ttyACM0 or COM3)")
-    parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
+    parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
 
-    parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file> in the format set by --format")
-    parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV (default), JSON")
+    parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file>.csv/json")
+    # parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV (default), JSON")
 
     # parser.add_argument("--gui", dest="gui", action="store_true", default=True, help="Display the GUI / Interactive chart (default: ON)")
     parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
@@ -584,11 +583,11 @@ def main():
     global save_file
     global save_format
 
-    if args.format:
-        save_format = args.format[0].upper()
-        if not save_format in ["CSV", "JSON"]:
-            print(f"Unknown format {save_format}", file=sys.stderr)
-            return -2
+    # if args.format:
+    #     save_format = args.format[0].upper()
+    #     if not save_format in ["CSV", "JSON"]:
+    #         print(f"Unknown format {save_format}", file=sys.stderr)
+    #         return -2
 
     if args.out:
         output_file_name = args.out[0]
