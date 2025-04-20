@@ -44,9 +44,10 @@ median_filter = 0;
 # 
 save_file = None;
 save_format = None;
+log_size_bytes = 1024*1024;
 
 linear_current_axis = False;
-light_theme = False;
+light_theme = True;
 autoscale_current = True
 chart_length_s = 0
 hide_info_on_plot = True
@@ -484,12 +485,12 @@ def plot_from_file(file_path):
 
 def init_argparse() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        usage="%(prog)s -p <port> [OPTION]",
+        usage="\t%(prog)s -p <port> [OPTION(s)]\n\t%(prog)s -i <file> [OPTION(s)]",
         description="CurrentRanger R3 Viewer"
     )
 
     parser.add_argument("--version", action="version", version = f"{parser.prog} version {version}")
-    parser.add_argument("-p", "--port", nargs=1, help="Set the serial port (backed by USB or BlueTooth) to connect to (example: /dev/ttyACM0 or COM3)")
+    parser.add_argument("-p", "--port", metavar='<port>', nargs=1, help="Set the serial port (backed by USB or Bluetooth) to connect to(example: /dev/ttyACM0 or COM3)")
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
     parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
 
@@ -503,34 +504,36 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-m", "--max-chart", metavar='<samples>', type=int, nargs=1, help=f"Set the chart max # samples displayed (default: {chart_max_samples})")
     parser.add_argument("-r", "--refresh", metavar='<ms>', type=int, nargs=1, help=f"Set the live chart refresh interval in milliseconds (default: {refresh_interval})")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase logging verbosity (can be specified multiple times)")
-    parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages on the console")
-    parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: 1Mb)")
-    parser.add_argument("-l", "--log-file", nargs=1, help=f"Set the debug log file name and start logging to it")
+    parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages in the console (combine with -v|--verbose)")
+    parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: {log_size_bytes/1024/1024:.0f})")
+    parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename and start logging to it")
 
     parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
-    parser.add_argument("--light", default=False, action="store_true", help="Use the light theme")
+    parser.add_argument("--switch-theme", default=False, action="store_true", help=f"Switch from the dark to the light theme or vice-versa (currently: {"Light" if light_theme else "Dark"})")
 
     parser.set_defaults(gui=True)
     return parser
 
 def main():
+    global log_size_bytes
 
     print("CurrentViewer v" + version)
-
-    log_size = 1024*1024;
 
     parser = init_argparse()
     args = parser.parse_args()
 
+    if not (args.port or args.input):
+        parser.error("Use (at least) one of the above calls to use this script")
+
     if args.log_file:
         logfile = args.log_file[0]
-        file_logger = RotatingFileHandler(logfile, maxBytes=log_size, backupCount=1)
+        file_logger = RotatingFileHandler(logfile, maxBytes=log_size_bytes, backupCount=1)
         file_logger.setLevel(logging.DEBUG)
         file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
         logging.getLogger().addHandler(file_logger)
 
     if args.log_size:
-        log_size = 1024*1024*args.log_size[0]
+        log_size_bytes = 1024*1024*args.log_size[0]
 
     if args.refresh:
         global refresh_interval
@@ -570,9 +573,9 @@ def main():
         global linear_current_axis
         linear_current_axis = True
     
-    if args.light:
+    if args.switch_theme:
         global light_theme
-        light_theme = True
+        light_theme = not light_theme
 
     if args.input:
         file_path = args.input[0]
