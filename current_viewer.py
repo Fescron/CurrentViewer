@@ -15,48 +15,60 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import mplcursors
 import matplotlib.animation as animation
-from matplotlib.dates import num2date, MinuteLocator, SecondLocator, DateFormatter
+from matplotlib.dates import num2date, DateFormatter
 from matplotlib.widgets import Button
 from datetime import datetime, timedelta
 from threading import Thread
 from os import path
 from matplotlib.ticker import EngFormatter
 
-version = '1.0.9-BVE'
 
-port = ''
+version = "1.1.0-BVE"
+connected_device = "CurrentRanger"
+
+# Default serial connection settings
+port = ""
 baud = 115200
 
+# Default plot refresh interval
 refresh_interval = 66 # 66ms = 15fps
 
-# controls the window size (and memory usage). 100k samples = 3 minutes
+# Controls the default window size (and memory usage). 100k samples = 3 minutes
 buffer_max_samples = 100000
 
-# controls how many samples to display in the chart (and CPU usage). Ie 4k display should be ok with 2k samples
+# Controls how many samples to display (by default) in the chart (and CPU usage). Ie 4k display should be ok with 2k samples
 chart_max_samples = 2048
 
-# how many samples to average (median) 
-max_supersampling = 16;
+# Set to "True" to compute median instead of average (less noise, more CPU)
+median_filter = False
 
-# set to true to compute median instead of average (less noise, more CPU)
-median_filter = 0;
+# How many samples to average (median)
+max_supersampling = 16
 
-# 
-save_file = None;
-save_format = None;
-log_size_bytes = 1024*1024;
+# Global variables used for storing samples to a file
+save_file = None
+save_format = None
 
-linear_current_axis = False;
-light_theme = True;
+# Default logfile size
+log_size_bytes = 1024*1024
+
+# Global variables used for the linear current scaling
+linear_current_axis = False
 autoscale_current = True
+
+# Set to "False" to default to the dark theme
+light_theme = True
+
+# Used to print the total chart lengt on the plot
 chart_length_s = 0
+
+# Set to "False" to display the program name and GitHub repository on the plot
 hide_info_on_plot = True
 
-connected_device = "CurrentRanger"
 
 class CRPlot:
     def __init__(self, sample_buffer = 100):
-        self.port = '/dev/ttyACM0'
+        self.port = "/dev/ttyACM0"
         self.baud = 9600
         self.thread = None
         self.stream_data = True
@@ -73,22 +85,22 @@ class CRPlot:
     def serialStart(self, port, speed = 115200):
         self.port = port
         self.baud = speed
-        logging.info("Trying to connect to port='{}' baud='{}'".format(port, speed))
+        logging.info(f"Trying to connect to port='{port}' with baud='{speed}'")
         try:
             self.serialConnection = serial.Serial(self.port, self.baud, timeout=5)
-            logging.info("Connected to {} at baud {}".format(port, speed))
+            logging.info(f"Connected to {port} at {speed} baud")
         except serial.SerialException as e:
-            logging.error("Error connecting to serial port: {}".format(e))
+            logging.error(f"Error connecting to serial port: {e}")
             return False
         except:
-            logging.error("Error connecting to serial port, unexpected exception:{}".format(sys.exc_info()))
+            logging.error(f"Error connecting to serial port, unexpected exception:{sys.exc_info()}")
             return False
 
         if self.thread == None:
             self.thread = Thread(target=self.serialStream)
             self.thread.start()
 
-            print('Initializing data capture:', end='')
+            print("Initializing data capture:", end="")
             wait_timeout = 100
             while wait_timeout > 0 and self.sample_count == 0:
                 print('.', end='', flush=True)
@@ -102,66 +114,64 @@ class CRPlot:
             print("OK\n")
             return True
 
-
     def pauseRefresh(self, state):
-        logging.debug("pause {}".format(state))
+        logging.debug(f"pause {state}")
         self.pause_chart = not self.pause_chart
         if self.pause_chart:
             if not light_theme:
-                self.ax.set_title('<Paused>', color="yellow")
+                self.ax.set_title("<Paused>", color="yellow")
             else:
-                self.ax.set_title('<Paused>')
-            self.bpause.label.set_text('Resume')
+                self.ax.set_title("<Paused>")
+            self.bpause.label.set_text("Resume")
         else:
             if not light_theme:
                 self.ax.set_title(f"Streaming: {connected_device}", color="white")
             else:
                 self.ax.set_title(f"Streaming: {connected_device}")
-            self.bpause.label.set_text('Pause')
+            self.bpause.label.set_text("Pause")
 
     def saveAnimation(self, state):
-        logging.debug("save {}".format(state))
+        logging.debug(f"save {state}")
 
         def save_gif():
-            self.bsave.label.set_text('Saving...')
+            self.bsave.label.set_text("Saving...")
             plt.gcf().canvas.draw()
             filename = None
             while True:
-                filename = 'current' + str(self.animation_index) + '.gif'
+                filename = f"current{self.animation_index}.gif"
                 self.animation_index += 1
                 if not path.exists(filename):
                     break
             try:
-                logging.info("Animation saving started to '{}'".format(filename))
-                self.anim.save(filename, writer='imagemagick', fps=self.framerate)
-                logging.info("Animation saved to '{}'".format(filename))
+                logging.info(f"Animation saving started to '{filename}'")
+                self.anim.save(filename, writer="imagemagick", fps=self.framerate)
+                logging.info("Animation saved to '{filename}'")
             except Exception as e:
                 logging.error(f"Failed to save animation: {e}")
             finally:
-                self.bsave.label.set_text('GIF')
+                self.bsave.label.set_text("GIF")
                 plt.gcf().canvas.draw()
 
-        # Run the save operation in a separate thread
         Thread(target=save_gif, daemon=True).start()
-    
+
     def toggle_autoscale_current(self, state):
         global autoscale_current
         autoscale_current = not autoscale_current
         toolbar = plt.get_current_fig_manager().toolbar
         if autoscale_current:
-            self.b_autoscale_current.label.set_text('Manual\nCurr. Scale')
+            self.b_autoscale_current.label.set_text("Manual\nCurr. Scale")
             if toolbar.mode == "zoom rect":
                 toolbar.zoom() # Unselect the zoom tool
         else:
-            self.b_autoscale_current.label.set_text('Automatic\nCurr. Scale')
+            self.b_autoscale_current.label.set_text("Automatic\nCurr. Scale")
             if toolbar.mode != "zoom rect":
                 toolbar.zoom() # Select the zoom tool (because it is not already selected)
 
     def chartSetup(self, refresh_interval=100):
         if not light_theme:
-            plt.style.use('dark_background')
+            plt.style.use("dark_background")
 
-        fig = plt.figure(num=f"CurrentViewer {version}", figsize=(10, 6))
+        fig = plt.figure(num=f"CurrentViewer v{version}", figsize=(10, 6))
         self.ax = plt.axes()
         ax = self.ax
 
@@ -171,33 +181,32 @@ class CRPlot:
 
         lines = ax.plot([], [], label="Current")[0]
 
-        lastText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
-        statusText = ax.text(0.50, 0.50, '', transform=ax.transAxes)
+        lastText = ax.text(0.50, 0.95, "", transform=ax.transAxes)
         self.anim = animation.FuncAnimation(fig, self.getSerialData, fargs=(lines, plt.legend(), lastText), interval=refresh_interval, cache_frame_data=False)
 
         apause = plt.axes([0.91, 0.15, 0.08, 0.07])
         if not light_theme:
-            self.bpause = Button(apause, label='Pause', color='0.2', hovercolor='0.1')
-            self.bpause.label.set_color('yellow')
+            self.bpause = Button(apause, label="Pause", color="0.2", hovercolor="0.1")
+            self.bpause.label.set_color("yellow")
         else:
-            self.bpause = Button(apause, label='Pause')
+            self.bpause = Button(apause, label="Pause")
         self.bpause.on_clicked(self.pauseRefresh)
 
         aanimation = plt.axes([0.91, 0.25, 0.08, 0.07])
         if not light_theme:
-            self.bsave = Button(aanimation, 'GIF', color='0.2', hovercolor='0.1')
-            self.bsave.label.set_color('yellow')
+            self.bsave = Button(aanimation, "GIF", color="0.2", hovercolor="0.1")
+            self.bsave.label.set_color("yellow")
         else:
-            self.bsave = Button(aanimation, 'GIF')
+            self.bsave = Button(aanimation, "GIF")
         self.bsave.on_clicked(self.saveAnimation)
 
         if linear_current_axis:
             a_autoscale_current = plt.axes([0.91, 0.35, 0.08, 0.07])
             if not light_theme:
-                self.b_autoscale_current = Button(a_autoscale_current, 'Manual\nCurr. Scale', color='0.2', hovercolor='0.1')
-                self.b_autoscale_current.label.set_color('yellow')
+                self.b_autoscale_current = Button(a_autoscale_current, "Manual\nCurr. Scale", color="0.2", hovercolor="0.1")
+                self.b_autoscale_current.label.set_color("yellow")
             else:
-                self.b_autoscale_current = Button(a_autoscale_current, 'Manual\nCurr. Scale')
+                self.b_autoscale_current = Button(a_autoscale_current, "Manual\nCurr. Scale")
             self.b_autoscale_current.on_clicked(self.toggle_autoscale_current)
 
         crs = mplcursors.cursor(ax, hover=True)
@@ -212,8 +221,8 @@ class CRPlot:
 
 
     def serialStream(self):
-        # set data streaming mode on CR (assuming it was off)
-        self.serialConnection.write(b'u')
+        # Set data streaming mode on CurrentRanger (assuming it was off)
+        self.serialConnection.write(b"u")
 
         self.serialConnection.reset_input_buffer()
         self.sample_count = 0
@@ -221,7 +230,7 @@ class CRPlot:
         error_count = 0
         self.dataStartTS = datetime.now()
 
-        # data timeout threshold (seconds) - bails out of no samples received
+        # Data timeout threshold (seconds) - bails out of no samples received
         data_timeout_ths = 0.5
 
         line = None
@@ -231,7 +240,7 @@ class CRPlot:
 
         while (self.stream_data):
             try:
-                # get the timestamp before the data string, likely to align better with the actual reading
+                # Get the timestamp before the data string, likely to align better with the actual reading
                 ts = datetime.now()
 
                 chunk_len = device_data.find(b"\n")
@@ -257,8 +266,8 @@ class CRPlot:
 
                 if (line.startswith("USB_LOGGING")):
                     if (line.startswith("USB_LOGGING_DISABLED")):
-                        # must have been left open by a different process/instance
-                        logging.info("CR USB Logging was disabled. Re-enabling")
+                        # Must have been left open by a different process/instance
+                        logging.info("CurrentRanger USB Logging was disabled. Re-enabling")
                         self.serialConnection.write(b'u')
                         self.serialConnection.flush()
                     continue
@@ -268,58 +277,58 @@ class CRPlot:
                 line_count += 1
 
                 if save_file:
-                    if save_format == 'CSV':
+                    if save_format == "CSV":
                         save_file.write(f"{ts},{data}\n")
-                    elif save_format == 'JSON':
-                        save_file.write("{}{{\"time\":\"{}\",\"current\":\"{}\"}}".format(',\n' if self.sample_count>1 else '', ts, data))
+                    elif save_format == "JSON":
+                        save_file.write("{}{{\"time\":\"{}\",\"current\":\"{}\"}}".format(",\n" if self.sample_count>1 else "", ts, data))
 
                 if data < 0.0:
-                    # this happens too often (negative values)
+                    # This happens too often (negative values)
                     self.timestamps.append(np.datetime64(ts))
                     self.data.append(1.0e-11)
-                    logging.warning("Unexpected value='{}'".format(line.strip()))
+                    logging.warning(f"Unexpected value='{line.strip()}'")
                 else:
                     self.timestamps.append(np.datetime64(ts))
                     self.data.append(data)
                     logging.debug(f"#{self.sample_count}:{ts}: {data}")
 
                 if (self.sample_count % 1000 == 0):
-                    logging.debug("{}: '{}' -> {}".format(ts.strftime("%H:%M:%S.%f"), line.rstrip(), data))
+                    logging.debug(f"{ts.strftime("%H:%M:%S.%f")}: '{line.rstrip()}' -> {data}")
                     dt = datetime.now() - self.dataStartTS
-                    logging.info("Received {} samples in {:.0f}ms ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
-                    print("Received {} samples in {:.0f}ms ({:.2f} samples/second)".format(self.sample_count, 1000*dt.total_seconds(), self.sample_count/dt.total_seconds()))
+                    logging.info(f"Received {self.sample_count} samples in {1000*dt.total_seconds():.0f}ms ({self.sample_count/dt.total_seconds():.2f} samples/second)")
+                    print(f"Received {self.sample_count} samples in {1000*dt.total_seconds():.0f}ms ({self.sample_count/dt.total_seconds():.2f} samples/second)")
 
             except KeyboardInterrupt:
-                logging.info('Terminated by user')
+                logging.info("Terminated by user")
                 break
 
             except ValueError:
-                logging.error("Invalid data format: '{}': {}".format(line, sys.exc_info()))
+                logging.error(f"Invalid data format: '{line}': {sys.exc_info()}")
                 error_count += 1
-                last_sample = (np.datetime64(datetime.now()) - (self.timestamps[-1] if self.sample_count else np.datetime64(datetime.now())))/np.timedelta64(1, 's')
+                last_sample = (np.datetime64(datetime.now()) - (self.timestamps[-1] if self.sample_count else np.datetime64(datetime.now())))/np.timedelta64(1, "s")
                 if (error_count > 100) and  last_sample > data_timeout_ths:
-                    logging.error("Aborting. Error rate is too high {} errors, last valid sample received {} seconds ago".format(error_count, last_sample))
+                    logging.error(f"Aborting. Error rate is too high ({error_count} errors), last valid sample received {last_sample} seconds ago")
                     self.stream_data = False
                     break
                 pass
 
             except serial.SerialException as e:
-                logging.error('Serial read error: {}: {}'.format(e.strerror, sys.exc_info()))
+                logging.error(f"Serial read error: {e.strerror}: {sys.exc_info()}")
                 self.stream_data = False
                 break
 
         self.stream_data = False
 
-        # stop streaming so the device shuts down if in auto mode
-        logging.info('Telling CR to stop USB streaming')
-        
-        try:
-            # this will throw if the device has failed.disconnected already
-            self.serialConnection.write(b'u')
-        except:
-            logging.warning('Was not able to clean disconnect from the device')
+        # Stop streaming so the device shuts down if in auto mode
+        logging.info("Telling CurrentRanger to stop USB streaming")
 
-        logging.info('Serial streaming terminated')
+        try:
+            # This will throw if the device has failed.disconnected already
+            self.serialConnection.write(b"u")
+        except:
+            logging.warning("Was not able to clean disconnect from the device")
+
+        logging.info("Serial streaming terminated")
 
     def getSerialData(self, frame, lines, legend, lastText):
         global autoscale_current
@@ -335,7 +344,7 @@ class CRPlot:
 
         dt = datetime.now() - self.dataStartTS
 
-        # capped at buffer_max_samples
+        # Capped at buffer_max_samples
         sample_set_size = len(self.data)
 
         timestamps = []
@@ -352,13 +361,13 @@ class CRPlot:
 
         self.ax.set_xlim(timestamps[0], timestamps[-1])
 
-        # some machines max out at 100fps, so this should react in 0.5-5 seconds to actual speed
+        # Some machines max out at 100fps, so this should react in 0.5-5 seconds to actual speed
         sps_samples = min(512, sample_set_size);
-        dt_sps = (np.datetime64(datetime.now()) - self.timestamps[-sps_samples])/np.timedelta64(1, 's');
+        dt_sps = (np.datetime64(datetime.now()) - self.timestamps[-sps_samples])/np.timedelta64(1, "s");
 
-        # if more than 1 second since last sample, automatically set SPS to 0 so we don't have until it slowly decays to 0
-        sps = sps_samples/dt_sps if ((np.datetime64(datetime.now()) - self.timestamps[-1])/np.timedelta64(1, 's')) < 1 else 0.0
-        lastText.set_text('{:.1f} SPS'.format(sps))
+        # If more than 1 second since last sample, automatically set SPS to 0 so we don't have until it slowly decays to 0
+        sps = sps_samples/dt_sps if ((np.datetime64(datetime.now()) - self.timestamps[-1])/np.timedelta64(1, "s")) < 1 else 0.0
+        lastText.set_text(f"{sps:.1f} SPS")
         if sps > 500:
             if light_theme:
                 lastText.set_color("black")
@@ -376,9 +385,9 @@ class CRPlot:
             self.ax.relim()
             self.ax.set_ylim(bottom=0, top=max(samples) * 1.1)
 
-        logging.debug("Drawing chart: range {}@{} .. {}@{}".format(samples[0], timestamps[0], samples[-1], timestamps[-1]))
+        logging.debug(f"Drawing chart: range {samples[0]}@{timestamps[0]} .. {samples[-1]}@{timestamps[-1]}")
         lines.set_data(timestamps, samples)
-        self.ax.legend(labels=['Last: {}\nAvg.: {}\nTime: {:.2f} s'.format(textAmp(samples[-1]), textAmp(sum(samples)/len(samples)), round(chart_length_s, 2))])
+        self.ax.legend(labels=[f"Last: {textAmp(samples[-1])}\nAvg.: {textAmp(sum(samples)/len(samples))}\nTime: {round(chart_length_s, 2):.2f} s"])
 
 
     def isStreaming(self) -> bool:
@@ -399,20 +408,19 @@ def setup_plot_style(ax, fig, title):
     if not light_theme:
         ax.set_title(title, color="white")
         if not hide_info_on_plot:
-            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+            fig.text (0.2, 0.88, f"CurrentViewer v{version}", color="white",  verticalalignment="bottom", horizontalalignment="center", fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment="center", fontsize=9, alpha=0.5)
     else:
         ax.set_title(title)
         if not hide_info_on_plot:
-            fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+            fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment="bottom", horizontalalignment="center", fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment="bottom", horizontalalignment="center", fontsize=9, alpha=0.5)
 
     ax.set_ylabel("Current")
-    currentFormatter = EngFormatter(unit='A')
+    currentFormatter = EngFormatter(unit="A")
     if not linear_current_axis:
-        ax.set_yscale("log", nonpositive='clip')
+        ax.set_yscale("log", nonpositive="clip")
         ax.set_ylim(1e-10, 1e1)
-        # plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
         ax.yaxis.set_minor_formatter(currentFormatter)
     ax.yaxis.set_major_formatter(currentFormatter)
 
@@ -430,30 +438,30 @@ def setup_plot_style(ax, fig, title):
         ax.grid(axis="x", alpha=.3, linewidth=1, linestyle=":")
 
     #ax.xaxis.set_major_locator(SecondLocator())
-    ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+    ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
 
     def on_xlims_change(event_ax):
         global chart_length_s
-        logging.debug("Interactive zoom: {} .. {}".format(num2date(event_ax.get_xlim()[0]), num2date(event_ax.get_xlim()[1])))
+        logging.debug(f"Interactive zoom: {num2date(event_ax.get_xlim()[0])} .. {num2date(event_ax.get_xlim()[1])}")
 
         chart_length_s = (num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])).total_seconds()
 
         if chart_length_s < 5:
-            ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
+            ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S.%f"))
         else:
-            ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-            ax.xaxis.set_minor_formatter(DateFormatter('%H:%M:%S.%f'))
+            ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
+            ax.xaxis.set_minor_formatter(DateFormatter("%H:%M:%S.%f"))
 
-    ax.callbacks.connect('xlim_changed', on_xlims_change)
+    ax.callbacks.connect("xlim_changed", on_xlims_change)
 
-def textAmp(amp):
-    if (abs(amp) > 1.0):
-        return "{:.3f} A".format(amp)
-    if (abs(amp) > 0.001):
-        return "{:.2f} mA".format(amp*1000)
-    if (abs(amp) > 0.000001):
-        return "{:.1f} \u00B5A".format(amp*1000*1000)
-    return "{:.1f} nA".format(amp*1000*1000*1000)
+def textAmp(curr):
+    if (abs(curr) > 1.0):
+        return f"{curr:.3f} A"
+    if (abs(curr) > 0.001):
+        return f"{curr*1000:.2f} mA"
+    if (abs(curr) > 0.000001):
+        return f"{curr*1000*1000:.1f} \u00B5A"
+    return f"{curr*1000*1000*1000:.1f} nA"
 
 def plot_from_file(file_path):
     """Plot data from an existing CSV file"""
@@ -463,8 +471,8 @@ def plot_from_file(file_path):
         currents = data.iloc[:, 1]
 
         if not light_theme:
-            plt.style.use('dark_background')
-        fig, ax = plt.subplots(num=f"CurrentViewer {version}", figsize=(10, 6))
+            plt.style.use("dark_background")
+        fig, ax = plt.subplots(num=f"CurrentViewer v{version}", figsize=(10, 6))
         ax.plot(timestamps, currents, label="Current")
         plt.legend(loc="upper right", framealpha=0.5)
 
@@ -517,10 +525,12 @@ def init_argparse() -> argparse.ArgumentParser:
 def main():
     global log_size_bytes
 
-    print("CurrentViewer v" + version)
+    print(f"CurrentViewer v{version}")
 
     parser = init_argparse()
     args = parser.parse_args()
+
+    ignore_string = ""
 
     if not (args.port or args.input):
         parser.error("Use (at least) one of the above calls to use this script")
@@ -537,18 +547,26 @@ def main():
 
     if args.refresh:
         global refresh_interval
+        if args.input:
+            ignore_string = ignore_string + f"-r|--refresh {args.refresh[0]} "
         refresh_interval = args.refresh[0]
 
     if args.baud:
         global baud
+        if args.input:
+            ignore_string = ignore_string + f"-s|--baud {args.baud[0]} "
         baud = args.baud[0]
 
     if args.max_chart and args.max_chart[0] > 10:
         global chart_max_samples
+        if args.input:
+            ignore_string = ignore_string + f"-m|--max-chart {args.max_chart[0]} "
         chart_max_samples = args.max_chart[0]
 
     if args.buffer:
         global buffer_max_samples
+        if args.input:
+            ignore_string = ignore_string + f"-b|--buffer {args.buffer[0]} "
         buffer_max_samples = args.buffer[0]
         if buffer_max_samples < chart_max_samples:
             print("Command line error: Buffer size cannot be smaller than the chart sample size", file=sys.stderr)
@@ -556,8 +574,8 @@ def main():
 
     logging_level = logging.DEBUG if args.verbose>2 else (logging.INFO if args.verbose>1 else (logging.WARNING if args.verbose>0 else logging.ERROR))
 
-    # disable matplotlib logging for fonts, seems to be quite noisy
-    logging.getLogger('matplotlib.font_manager').disabled = True
+    # Disable matplotlib logging for fonts, seems to be quite noisy
+    logging.getLogger("matplotlib.font_manager").disabled = True
 
     if args.console or args.log_file:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -566,7 +584,7 @@ def main():
         print("Setting console logging")
         console_logger = logging.StreamHandler()
         console_logger.setLevel(logging_level)
-        console_logger.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
+        console_logger.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
         logging.getLogger().addHandler(console_logger)
 
     if args.linear:
@@ -577,38 +595,37 @@ def main():
         global light_theme
         light_theme = not light_theme
 
+    global save_file
+    global save_format
+
+    if args.out:
+        if not args.input:
+            output_file_name = args.out[0]
+            save_file = open(output_file_name, "w+")
+
+            if not save_format:
+                save_format = "CSV" if output_file_name.upper().endswith(".CSV") else "JSON"
+                logging.info(f"Save format automatically set to {save_format} for {args.out[0]}")
+
+            if save_format == "CSV":
+                save_file.write("DateTime [YYYY-MM-DD HH:MM:SS.ms],Current [A]\n")
+            elif save_format == "JSON":
+                save_file.write("{\n\"data\":[\n")
+        else:
+            ignore_string = ignore_string + f"-o|--out {args.out[0]} "
+
     if args.input:
         file_path = args.input[0]
         if not path.exists(file_path):
             print(f"Error: File '{file_path}' does not exist.", file=sys.stderr)
             return -1
+        if ignore_string != "":
+            print(f"(ignoring the following arguments since we're plotting from a file: {ignore_string[:-1]})") # "[:-1]" to remove the last blank space
         print(f"Plotting data from file: {file_path}")
         plot_from_file(file_path)
         return 0
 
-    global save_file
-    global save_format
-
-    # if args.format:
-    #     save_format = args.format[0].upper()
-    #     if not save_format in ["CSV", "JSON"]:
-    #         print(f"Unknown format {save_format}", file=sys.stderr)
-    #         return -2
-
-    if args.out:
-        output_file_name = args.out[0]
-        save_file = open(output_file_name, "w+")
-
-        if not save_format:
-            save_format = 'CSV' if output_file_name.upper().endswith('.CSV') else 'JSON'
-            logging.info(f"Save format automatically set to {save_format} for {args.out[0]}")
-
-        if save_format == 'CSV':
-            save_file.write("DateTime [YYYY-MM-DD HH:MM:SS.ms],Current [A]\n")
-        elif save_format == 'JSON':
-            save_file.write("{\n\"data\":[\n")
-
-    logging.info("CurrentViewer v{}. System: {}, Platform: {}, Machine: {}, Python: {}".format(version, platform.system(), platform.platform(), platform.machine(), platform.python_version()))
+    logging.info(f"CurrentViewer v{version}. System: {platform.system()}, Platform: {platform.platform()}, Machine: {platform.machine()}, Python: {platform.python_version()}")
 
     csp = CRPlot(sample_buffer=buffer_max_samples)
 
@@ -622,19 +639,19 @@ def main():
                 while csp.isStreaming():
                     time.sleep(0.01)
             except KeyboardInterrupt:
-                logging.info('Terminated')
+                logging.info("Terminated")
                 csp.close()
 
             print("Done.")
     else:
-        print("Fatal: Could not connect to USB/BT COM port {}. Check the logs for more information".format(args.port[0]), file=sys.stderr)
+        print(f"Fatal: Could not connect to USB/BT COM port {args.port[0]}. Check the logs for more information", file=sys.stderr)
 
     csp.close()
 
     if save_file:
-        if save_format == 'JSON':
+        if save_format == "JSON":
             save_file.write("\n]\n}\n")
         save_file.close()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
   main()
