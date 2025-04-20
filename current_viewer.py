@@ -287,7 +287,6 @@ class CRPlot:
         plt.gcf().autofmt_xdate()
         plt.show()
 
-
     def serialStream(self):
         """
         Reads data from the serial connection and processes it.
@@ -546,7 +545,6 @@ def setup_plot_style(ax, fig, title):
     else:
         ax.grid(axis="x", alpha=.3, linewidth=1, linestyle=":")
 
-    #ax.xaxis.set_major_locator(SecondLocator())
     ax.xaxis.set_major_formatter(DateFormatter("%H:%M:%S"))
 
     def on_xlims_change(event_ax):
@@ -616,7 +614,6 @@ def plot_from_file(file_path):
         logging.error(f"Failed to plot from file '{file_path}': {e}")
         print(f"Error: Could not plot data from file '{file_path}'. Check the logs for details.", file=sys.stderr)
 
-
 def init_argparse() -> argparse.ArgumentParser:
     """
     Initializes and configures the argument parser for the script.
@@ -637,13 +634,8 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-p", "--port", metavar='<port>', nargs=1, help="Set the serial port (backed by USB or Bluetooth) to connect to(example: /dev/ttyACM0 or COM3)")
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
     parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
-
     parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file>.csv/json")
-    # parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV (default), JSON")
-
-    # parser.add_argument("--gui", dest="gui", action="store_true", default=True, help="Display the GUI / Interactive chart (default: ON)")
     parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
-
     parser.add_argument("-b", "--buffer", metavar='<samples>', type=int, nargs=1, help=f"Set the chart buffer size (window size) in # of samples (default: {buffer_max_samples})")
     parser.add_argument("-m", "--max-chart", metavar='<samples>', type=int, nargs=1, help=f"Set the chart max # samples displayed (default: {chart_max_samples})")
     parser.add_argument("-r", "--refresh", metavar='<ms>', type=int, nargs=1, help=f"Set the live chart refresh interval in milliseconds (default: {refresh_interval})")
@@ -651,7 +643,6 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages in the console (combine with -v|--verbose)")
     parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: {log_size_bytes/1024/1024:.0f})")
     parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename and start logging to it")
-
     parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
     parser.add_argument("--switch-theme", default=False, action="store_true", help=f"Switch from the dark to the light theme or vice-versa (currently: {"Light" if light_theme else "Dark"})")
 
