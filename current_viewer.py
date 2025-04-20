@@ -59,7 +59,7 @@ autoscale_current = True
 # Set to "False" to default to the dark theme
 light_theme = True
 
-# Used to print the total chart lengt on the plot
+# Used to print the total chart length on the plot
 chart_length_s = 0
 
 # Set to "False" to display the program name and GitHub repository on the plot
@@ -67,7 +67,32 @@ hide_info_on_plot = True
 
 
 class CRPlot:
+    """
+    A class for managing live data streaming and plotting from a CurrentRanger device.
+
+    Attributes:
+    - port: The serial port to connect to.
+    - baud: The baud rate for the serial connection.
+    - thread: The thread for streaming data.
+    - stream_data: A flag indicating whether data streaming is active.
+    - pause_chart: A flag indicating whether the chart is paused.
+    - sample_count: The number of samples received.
+    - animation_index: The index for saving animations.
+    - max_samples: The maximum number of samples to store in memory.
+    - data: A deque for storing current values.
+    - timestamps: A deque for storing timestamps.
+    - dataStartTS: The timestamp when data streaming started.
+    - serialConnection: The serial connection object.
+    - framerate: The framerate for animations.
+    """
+
     def __init__(self, sample_buffer = 100):
+        """
+        Initializes the CRPlot object with default settings.
+
+        Parameters:
+        - sample_buffer: The maximum number of samples to store in memory.
+        """
         self.port = "/dev/ttyACM0"
         self.baud = 9600
         self.thread = None
@@ -83,6 +108,16 @@ class CRPlot:
         self.framerate = 30
 
     def serialStart(self, port, speed = 115200):
+        """
+        Starts the serial connection and data streaming.
+
+        Parameters:
+        - port: The serial port to connect to.
+        - speed: The baud rate for the serial connection.
+
+        Returns:
+        True if the connection is successful, False otherwise.
+        """
         self.port = port
         self.baud = speed
         logging.info(f"Trying to connect to port='{port}' with baud='{speed}'")
@@ -103,7 +138,7 @@ class CRPlot:
             print("Initializing data capture:", end="")
             wait_timeout = 100
             while wait_timeout > 0 and self.sample_count == 0:
-                print('.', end='', flush=True)
+                print(".", end="", flush=True)
                 time.sleep(0.01)
                 wait_timeout -= 1
 
@@ -115,6 +150,14 @@ class CRPlot:
             return True
 
     def pauseRefresh(self, state):
+        """
+        Toggles the pause state of the chart.
+
+        Parameters:
+        - state: The current state of the pause button.
+
+        This function updates the chart title and button label based on the pause state.
+        """
         logging.debug(f"pause {state}")
         self.pause_chart = not self.pause_chart
         if self.pause_chart:
@@ -131,6 +174,14 @@ class CRPlot:
             self.bpause.label.set_text("Pause")
 
     def saveAnimation(self, state):
+        """
+        Saves the current animation as a GIF file.
+
+        Parameters:
+        - state: The current state of the save button.
+
+        This function starts a background thread to save the animation to a file.
+        """
         logging.debug(f"save {state}")
 
         def save_gif():
@@ -155,6 +206,14 @@ class CRPlot:
         Thread(target=save_gif, daemon=True).start()
 
     def toggle_autoscale_current(self, state):
+        """
+        Toggles the autoscale mode for the current axis.
+
+        Parameters:
+        - state: The current state of the autoscale button.
+
+        This function switches between manual and automatic scaling for the y-axis.
+        """
         global autoscale_current
         autoscale_current = not autoscale_current
         toolbar = plt.get_current_fig_manager().toolbar
@@ -168,6 +227,15 @@ class CRPlot:
                 toolbar.zoom() # Select the zoom tool (because it is not already selected)
 
     def chartSetup(self, refresh_interval=100):
+        """
+        Sets up the live chart for streaming data.
+
+        Parameters:
+        - refresh_interval: The refresh interval for the chart in milliseconds.
+
+        This function initializes the matplotlib figure, axes, and buttons for
+        interacting with the live chart.
+        """
         if not light_theme:
             plt.style.use("dark_background")
 
@@ -221,6 +289,12 @@ class CRPlot:
 
 
     def serialStream(self):
+        """
+        Reads data from the serial connection and processes it.
+
+        This function runs in a background thread and continuously reads data
+        from the serial port, parses it, and stores it in memory for plotting.
+        """
         # Set data streaming mode on CurrentRanger (assuming it was off)
         self.serialConnection.write(b"u")
 
@@ -268,7 +342,7 @@ class CRPlot:
                     if (line.startswith("USB_LOGGING_DISABLED")):
                         # Must have been left open by a different process/instance
                         logging.info("CurrentRanger USB Logging was disabled. Re-enabling")
-                        self.serialConnection.write(b'u')
+                        self.serialConnection.write(b"u")
                         self.serialConnection.flush()
                     continue
 
@@ -331,15 +405,26 @@ class CRPlot:
         logging.info("Serial streaming terminated")
 
     def getSerialData(self, frame, lines, legend, lastText):
+        """
+        Updates the chart with the latest data.
+
+        Parameters:
+        - frame: The current frame of the animation.
+        - lines: The matplotlib Line2D object for the data line.
+        - legend: The legend object for the chart.
+        - lastText: The text object for displaying the sample rate.
+
+        This function processes the data and updates the chart elements.
+        """
         global autoscale_current
 
         if (self.pause_chart or len(self.data) < 2):
-            lastText.set_text('')
+            lastText.set_text("")
             return
 
         if not self.stream_data:
-            self.ax.set_title('<Disconnected>', color="red")
-            lastText.set_text('')
+            self.ax.set_title("<Disconnected>", color="red")
+            lastText.set_text("")
             return
 
         dt = datetime.now() - self.dataStartTS
@@ -391,9 +476,21 @@ class CRPlot:
 
 
     def isStreaming(self) -> bool:
+        """
+        Checks whether data streaming is active.
+
+        Returns:
+        True if streaming is active, False otherwise.
+        """
         return self.stream_data
 
     def close(self):
+        """
+        Closes the serial connection and stops data streaming.
+
+        This function ensures that the background thread is stopped and the
+        serial connection is properly closed.
+        """
         self.stream_data = False
 
         if self.thread != None:
@@ -405,11 +502,23 @@ class CRPlot:
         logging.info("Connection closed.")
 
 def setup_plot_style(ax, fig, title):
+    """
+    Configures the style and appearance of a plot.
+
+    Parameters:
+    - ax: The matplotlib Axes object to configure.
+    - fig: The matplotlib Figure object to configure.
+    - title: The title of the plot.
+
+    This function applies consistent styling to the plot, including grid lines,
+    axis labels, title, and footer text. It also adjusts the y-axis scale based
+    on the `linear_current_axis` setting.
+    """
     if not light_theme:
         ax.set_title(title, color="white")
         if not hide_info_on_plot:
             fig.text (0.2, 0.88, f"CurrentViewer v{version}", color="white",  verticalalignment="bottom", horizontalalignment="center", fontsize=9, alpha=0.5)
-            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment="center", fontsize=9, alpha=0.5)
+            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment="bottom", horizontalalignment="center", fontsize=9, alpha=0.5)
     else:
         ax.set_title(title)
         if not hide_info_on_plot:
@@ -455,6 +564,15 @@ def setup_plot_style(ax, fig, title):
     ax.callbacks.connect("xlim_changed", on_xlims_change)
 
 def textAmp(curr):
+    """
+    Converts a current value into a human-readable string with appropriate units.
+
+    Parameters:
+    - curr: The current value in amperes.
+
+    Returns:
+    A string representation of the current value with units (A, mA, µA, or nA).
+    """
     if (abs(curr) > 1.0):
         return f"{curr:.3f} A"
     if (abs(curr) > 0.001):
@@ -464,7 +582,15 @@ def textAmp(curr):
     return f"{curr*1000*1000*1000:.1f} nA"
 
 def plot_from_file(file_path):
-    """Plot data from an existing CSV file"""
+    """
+    Plots data from an existing CSV file.
+
+    Parameters:
+    - file_path: The path to the CSV file containing the data.
+
+    This function reads the CSV file, extracts timestamps and current values,
+    and plots them using matplotlib. It applies consistent styling to the plot.
+    """
     try:
         data = pd.read_csv(file_path, parse_dates=[0])
         timestamps = pd.to_datetime(data.iloc[:, 0])
@@ -492,6 +618,16 @@ def plot_from_file(file_path):
 
 
 def init_argparse() -> argparse.ArgumentParser:
+    """
+    Initializes and configures the argument parser for the script.
+
+    Returns:
+    An argparse.ArgumentParser object with all the supported command-line arguments.
+
+    This function defines the command-line arguments for the script, including
+    options for serial port, baud rate, input file, output file, and various
+    configuration settings.
+    """
     parser = argparse.ArgumentParser(
         usage="\t%(prog)s -p <port> [OPTION(s)]\n\t%(prog)s -i <file> [OPTION(s)]",
         description="CurrentRanger R3 Viewer"
@@ -523,6 +659,13 @@ def init_argparse() -> argparse.ArgumentParser:
     return parser
 
 def main():
+    """
+    The main entry point of the script.
+
+    This function parses command-line arguments, initializes logging, and
+    either starts live data streaming or plots data from a file. It handles
+    both GUI and non-GUI modes and manages the lifecycle of the CRPlot object.
+    """
     global log_size_bytes
 
     print(f"CurrentViewer v{version}")
@@ -539,7 +682,7 @@ def main():
         logfile = args.log_file[0]
         file_logger = RotatingFileHandler(logfile, maxBytes=log_size_bytes, backupCount=1)
         file_logger.setLevel(logging.DEBUG)
-        file_logger.setFormatter(logging.Formatter('%(levelname)s:%(asctime)s:%(threadName)s:%(message)s'))
+        file_logger.setFormatter(logging.Formatter("%(levelname)s:%(asctime)s:%(threadName)s:%(message)s"))
         logging.getLogger().addHandler(file_logger)
 
     if args.log_size:
