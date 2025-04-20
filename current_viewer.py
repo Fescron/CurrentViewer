@@ -22,7 +22,7 @@ from threading import Thread
 from os import path
 from matplotlib.ticker import EngFormatter
 
-version = '1.0.8-BVE'
+version = '1.0.9-BVE'
 
 port = ''
 baud = 115200
@@ -158,65 +158,20 @@ class CRPlot:
     def chartSetup(self, refresh_interval=100):
         if not light_theme:
             plt.style.use('dark_background')
+
         fig = plt.figure(num=f"Current Viewer {version}", figsize=(10, 6))
         self.ax = plt.axes()
         ax = self.ax
 
-        if not light_theme:
-            ax.set_title(f"Streaming: {connected_device}", color="white")
-            fig.text (0.2, 0.88, f"CurrentViewer {version}", color="yellow",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-        else:
-            ax.set_title(f"Streaming: {connected_device}")
-            fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
-            fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        setup_plot_style(ax, fig, title=f"Streaming: {connected_device}")
 
-        ax.set_ylabel("Current")
-        currentFormatter = EngFormatter(unit='A')
-        if not linear_current_axis:
-            ax.set_yscale("log", nonpositive='clip')
-            ax.set_ylim(1e-10, 1e1)
-            # plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
-            ax.yaxis.set_minor_formatter(currentFormatter)
-        ax.yaxis.set_major_formatter(currentFormatter)
-
-        if not light_theme:
-            ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
-        else:
-            ax.grid(axis="y", which="both", alpha=.3, linewidth=.5)
-
-        ax.set_xlabel("Time")
-        plt.xticks(rotation=20)
         ax.set_xlim(datetime.now(), datetime.now() + timedelta(seconds=10))
-        if not light_theme:
-            ax.grid(axis="x", color="green", alpha=.4, linewidth=2, linestyle=":")
-        else:
-            ax.grid(axis="x", alpha=.3, linewidth=1, linestyle=":")
-
-        #ax.xaxis.set_major_locator(SecondLocator())
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-
-        def on_xlims_change(event_ax):
-            global chart_length_s
-            logging.debug("Interactive zoom: {} .. {}".format(num2date(event_ax.get_xlim()[0]), num2date(event_ax.get_xlim()[1])))
-
-            chart_length_s = (num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])).total_seconds()
-
-            if chart_length_s < 5:
-                self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
-            else:
-                self.ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-                self.ax.xaxis.set_minor_formatter(DateFormatter('%H:%M:%S.%f'))
-
-        ax.callbacks.connect('xlim_changed', on_xlims_change)
 
         lines = ax.plot([], [], label="Current")[0]
 
         lastText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
         statusText = ax.text(0.50, 0.50, '', transform=ax.transAxes)
         self.anim = animation.FuncAnimation(fig, self.getSerialData, fargs=(lines, plt.legend(), lastText), interval=refresh_interval, cache_frame_data=False)
-
-        plt.legend(loc="upper right", framealpha=0.5)
 
         apause = plt.axes([0.91, 0.15, 0.08, 0.07])
         if not light_theme:
@@ -247,7 +202,7 @@ class CRPlot:
         @crs.connect("add")
         def _(sel):
             sel.annotation.arrow_patch.set(arrowstyle="simple", fc="yellow", alpha=.4)
-            sel.annotation.set_text(self.textAmp(sel.target[1]))
+            sel.annotation.set_text(textAmp(sel.target[1]))
 
         self.framerate = 1000/refresh_interval
         plt.gcf().autofmt_xdate()
@@ -255,7 +210,6 @@ class CRPlot:
 
 
     def serialStream(self):
-
         # set data streaming mode on CR (assuming it was off)
         self.serialConnection.write(b'u')
 
@@ -365,16 +319,6 @@ class CRPlot:
 
         logging.info('Serial streaming terminated')
 
-    def textAmp(self, amp):
-        if (abs(amp) > 1.0):
-            return "{:.3f} A".format(amp)
-        if (abs(amp) > 0.001):
-            return "{:.2f} mA".format(amp*1000)
-        if (abs(amp) > 0.000001):
-            return "{:.1f} \u00B5A".format(amp*1000*1000)
-        return "{:.1f} nA".format(amp*1000*1000*1000)
-
-
     def getSerialData(self, frame, lines, legend, lastText):
         global autoscale_current
 
@@ -432,7 +376,7 @@ class CRPlot:
 
         logging.debug("Drawing chart: range {}@{} .. {}@{}".format(samples[0], timestamps[0], samples[-1], timestamps[-1]))
         lines.set_data(timestamps, samples)
-        self.ax.legend(labels=['Last: {}\nAvg.: {}\nTime: {:.2f} s'.format( self.textAmp(samples[-1]), self.textAmp(sum(samples)/len(samples)), round(chart_length_s, 2))])
+        self.ax.legend(labels=['Last: {}\nAvg.: {}\nTime: {:.2f} s'.format(textAmp(samples[-1]), textAmp(sum(samples)/len(samples)), round(chart_length_s, 2))])
 
 
     def isStreaming(self) -> bool:
@@ -449,34 +393,86 @@ class CRPlot:
 
         logging.info("Connection closed.")
 
+def setup_plot_style(ax, fig, title):
+    if not light_theme:
+        ax.set_title(title, color="white")
+        fig.text (0.2, 0.88, f"CurrentViewer {version}", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", color="white",  verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+    else:
+        ax.set_title(title)
+        fig.text (0.2, 0.88, f"CurrentViewer {version}", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+        fig.text (0.89, 0.0, f"github.com/MGX3D/CurrentViewer", verticalalignment='bottom', horizontalalignment='center', fontsize=9, alpha=0.5)
+
+    ax.set_ylabel("Current")
+    currentFormatter = EngFormatter(unit='A')
+    if not linear_current_axis:
+        ax.set_yscale("log", nonpositive='clip')
+        ax.set_ylim(1e-10, 1e1)
+        # plt.yticks([1.0e-9, 1.0e-8, 1.0e-7, 1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 1.0e-2, 1.0e-1, 1.0], ['1nA', '10nA', '100nA', '1\u00B5A', '10\u00B5A', '100\u00B5A', '1mA', '10mA', '100mA', '1A'], rotation=0)
+        ax.yaxis.set_minor_formatter(currentFormatter)
+    ax.yaxis.set_major_formatter(currentFormatter)
+
+    if not light_theme:
+        ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
+    else:
+        ax.grid(axis="y", which="both", alpha=.3, linewidth=.5)
+
+    ax.set_xlabel("Time")
+    plt.xticks(rotation=20)
+
+    if not light_theme:
+        ax.grid(axis="x", color="green", alpha=.4, linewidth=2, linestyle=":")
+    else:
+        ax.grid(axis="x", alpha=.3, linewidth=1, linestyle=":")
+
+    #ax.xaxis.set_major_locator(SecondLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+
+    def on_xlims_change(event_ax):
+        global chart_length_s
+        logging.debug("Interactive zoom: {} .. {}".format(num2date(event_ax.get_xlim()[0]), num2date(event_ax.get_xlim()[1])))
+
+        chart_length_s = (num2date(event_ax.get_xlim()[1]) - num2date(event_ax.get_xlim()[0])).total_seconds()
+
+        if chart_length_s < 5:
+            ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S.%f'))
+        else:
+            ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
+            ax.xaxis.set_minor_formatter(DateFormatter('%H:%M:%S.%f'))
+
+    ax.callbacks.connect('xlim_changed', on_xlims_change)
+
+    plt.legend(loc="upper right", framealpha=0.5)
+
+def textAmp(amp):
+    if (abs(amp) > 1.0):
+        return "{:.3f} A".format(amp)
+    if (abs(amp) > 0.001):
+        return "{:.2f} mA".format(amp*1000)
+    if (abs(amp) > 0.000001):
+        return "{:.1f} \u00B5A".format(amp*1000*1000)
+    return "{:.1f} nA".format(amp*1000*1000*1000)
 
 def plot_from_file(file_path):
-    """Plots data from an existing CSV file."""
+    """Plot data from an existing CSV file"""
     try:
-        # Read the CSV file
         data = pd.read_csv(file_path, parse_dates=[0])
         timestamps = pd.to_datetime(data.iloc[:, 0])
         currents = data.iloc[:, 1]
 
-        # Set up the plot
         if not light_theme:
             plt.style.use('dark_background')
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(timestamps, currents, label="Current")
 
-        ax.set_title(f"Current Viewer - File: {file_path}")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Current (A)")
-        ax.xaxis.set_major_formatter(DateFormatter('%H:%M:%S'))
-        ax.legend(loc="upper right", framealpha=0.5)
+        setup_plot_style(ax, fig, f"File: {file_path}")
 
-        if not light_theme:
-            ax.grid(axis="y", which="both", color="yellow", alpha=.3, linewidth=.5)
-        else:
-            ax.grid(axis="y", which="both", alpha=.3, linewidth=.5)
+        crs = mplcursors.cursor(ax, hover=True)
+        @crs.connect("add")
+        def _(sel):
+            sel.annotation.arrow_patch.set(arrowstyle="simple", fc="yellow", alpha=.4)
+            sel.annotation.set_text(textAmp(sel.target[1]))
 
-        plt.xticks(rotation=20)
-        plt.tight_layout()
         plt.show()
 
     except Exception as e:
@@ -496,7 +492,7 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
 
     parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file> in the format set by --format")
-    parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV, JSON")
+    parser.add_argument("--format", metavar='<fmt>', nargs=1, help=f"Set the output format to one of: CSV (default), JSON")
 
     # parser.add_argument("--gui", dest="gui", action="store_true", default=True, help="Display the GUI / Interactive chart (default: ON)")
     parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
@@ -523,16 +519,6 @@ def main():
 
     parser = init_argparse()
     args = parser.parse_args()
-
-    # Handle the --input argument
-    if args.input:
-        file_path = args.input[0]
-        if not path.exists(file_path):
-            print(f"Error: File '{file_path}' does not exist.", file=sys.stderr)
-            return -1
-        print(f"Plotting data from file: {file_path}")
-        plot_from_file(file_path)
-        return 0
 
     if args.log_file:
         logfile = args.log_file[0]
@@ -585,6 +571,15 @@ def main():
     if args.light:
         global light_theme
         light_theme = True
+
+    if args.input:
+        file_path = args.input[0]
+        if not path.exists(file_path):
+            print(f"Error: File '{file_path}' does not exist.", file=sys.stderr)
+            return -1
+        print(f"Plotting data from file: {file_path}")
+        plot_from_file(file_path)
+        return 0
 
     global save_file
     global save_format
