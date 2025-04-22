@@ -471,7 +471,7 @@ class CRPlot:
 
         logging.debug(f"Drawing chart: range {samples[0]}@{timestamps[0]} .. {samples[-1]}@{timestamps[-1]}")
         lines.set_data(timestamps, samples)
-        self.ax.legend(labels=[f"Last: {textAmp(samples[-1])}\nAvg.: {textAmp(sum(samples)/len(samples))}\nTime: {round(chart_length_s, 2):.2f} s"])
+        self.ax.legend(labels=[f"Last: {textAmp(samples[-1])}\nAvg.: {textAmp(sum(samples)/len(samples))}\nMax.: {textAmp(max(samples))}\nTime: {round(chart_length_s, 2):.2f} s"])
 
 
     def isStreaming(self) -> bool:
