@@ -717,7 +717,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
 
     if args.verbose>0:
-        print("Setting console logging")
+        print("Enabling console logging")
         console_logger = logging.StreamHandler()
         console_logger.setLevel(logging_level)
         console_logger.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
