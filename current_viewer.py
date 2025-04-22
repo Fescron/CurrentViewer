@@ -42,7 +42,7 @@ chart_max_samples = 2048
 # Set to "True" to compute median instead of average (less noise, more CPU)
 median_filter = False
 
-# How many samples to average (median)
+# How many samples to average or take the median from
 max_supersampling = 16
 
 # Global variables used for storing samples to a file
@@ -626,23 +626,23 @@ def init_argparse() -> argparse.ArgumentParser:
     configuration settings.
     """
     parser = argparse.ArgumentParser(
-        usage="\t%(prog)s -p <port> [OPTION(s)]\n\t%(prog)s -i <file> [OPTION(s)]",
+        usage="\t%(prog)s -p <port> [OPTION(s)]\n\t%(prog)s -i <file.csv> [OPTION(s)]",
         description="CurrentRanger R3 Viewer"
     )
 
     parser.add_argument("--version", action="version", version = f"{parser.prog} version {version}")
-    parser.add_argument("-p", "--port", metavar='<port>', nargs=1, help="Set the serial port (backed by USB or Bluetooth) to connect to(example: /dev/ttyACM0 or COM3)")
+    parser.add_argument("-p", "--port", metavar='<port>', nargs=1, help="Set the serial port (backed by USB or Bluetooth) to connect to (example: /dev/ttyACM0 or COM3)")
     parser.add_argument("-s", "--baud", metavar='<n>', type=int, nargs=1, help=f"Set the serial baud rate (default: {baud})")
-    parser.add_argument("-i", "--input", metavar='<file>', nargs=1, help="Plot data from an existing CSV file")
-    parser.add_argument("-o", "--out", metavar='<file>', nargs=1, help=f"Save the output samples to <file>.csv/json")
-    parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
+    parser.add_argument("-i", "--input", metavar='<file.csv>', nargs=1, help="Plot data from an existing CSV file")
+    parser.add_argument("-o", "--output", metavar='<file.csv/json>', nargs=1, help=f"Save the output samples to a CSV or JSON file")
+    parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
     parser.add_argument("-b", "--buffer", metavar='<samples>', type=int, nargs=1, help=f"Set the chart buffer size (window size) in # of samples (default: {buffer_max_samples})")
     parser.add_argument("-m", "--max-chart", metavar='<samples>', type=int, nargs=1, help=f"Set the chart max # samples displayed (default: {chart_max_samples})")
     parser.add_argument("-r", "--refresh", metavar='<ms>', type=int, nargs=1, help=f"Set the live chart refresh interval in milliseconds (default: {refresh_interval})")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="Show the debug messages in the console (can be specified at most 3 times to increase logging verbosity)")
-    parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: {log_size_bytes/1024/1024:.0f})")
-    parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename and start logging to it (always with the highest verbose level)")
-    parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
+    parser.add_argument("-g", "--no-gui", dest="gui", action="store_false", help="Do not display the GUI / Interactive Chart. Useful for automation")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Show debug messages in the console (can be specified up to 3 times to increase logging verbosity)")
+    parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename (and extension) and start logging to it (always with the highest verbose level)")
+    parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the maximum logfile size in megabytes (default: {log_size_bytes/1024/1024:.0f})")
     parser.add_argument("--switch-theme", default=False, action="store_true", help=f"Switch from the dark to the light theme or vice-versa (currently: {'Light' if light_theme else 'Dark'})")
 
     parser.set_defaults(gui=True)
@@ -734,21 +734,21 @@ def main():
     global save_file
     global save_format
 
-    if args.out:
+    if args.output:
         if not args.input:
-            output_file_name = args.out[0]
+            output_file_name = args.output[0]
             save_file = open(output_file_name, "w+")
 
             if not save_format:
                 save_format = "CSV" if output_file_name.upper().endswith(".CSV") else "JSON"
-                logging.info(f"Save format automatically set to {save_format} for {args.out[0]}")
+                logging.info(f"Save format automatically set to {save_format} for {args.output[0]}")
 
             if save_format == "CSV":
                 save_file.write("DateTime [YYYY-MM-DD HH:MM:SS.ms],Current [A]\n")
             elif save_format == "JSON":
                 save_file.write("{\n\"data\":[\n")
         else:
-            ignore_string = ignore_string + f"-o|--out {args.out[0]} "
+            ignore_string = ignore_string + f"-o|--output {args.output[0]} "
 
     if args.input:
         file_path = args.input[0]
