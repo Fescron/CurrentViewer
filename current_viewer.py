@@ -23,7 +23,7 @@ from os import path
 from matplotlib.ticker import EngFormatter, FuncFormatter
 
 
-version = "1.1.0-BVE"
+version = "1.1.1-BVE"
 connected_device = "CurrentRanger"
 
 # Default serial connection settings
@@ -355,18 +355,18 @@ class CRPlot:
                     elif save_format == "JSON":
                         save_file.write("{}{{\"time\":\"{}\",\"current\":\"{}\"}}".format(",\n" if self.sample_count>1 else "", ts, data))
 
-                if data < 0.0:
+                if data < 0.0: # TODO Allow negative values with a new mode
                     # This happens too often (negative values)
                     self.timestamps.append(np.datetime64(ts))
                     self.data.append(1.0e-11)
-                    logging.warning(f"Unexpected value='{line.strip()}'")
+                    logging.debug(f"Unexpected value='{line.strip()}'")
                 else:
                     self.timestamps.append(np.datetime64(ts))
                     self.data.append(data)
                     logging.debug(f"#{self.sample_count}:{ts}: {data}")
 
                 if (self.sample_count % 1000 == 0):
-                    logging.debug(f"{ts.strftime("%H:%M:%S.%f")}: '{line.rstrip()}' -> {data}")
+                    logging.debug(f"{ts.strftime('%H:%M:%S.%f')}: '{line.rstrip()}' -> {data}")
                     dt = datetime.now() - self.dataStartTS
                     logging.info(f"Received {self.sample_count} samples in {1000*dt.total_seconds():.0f}ms ({self.sample_count/dt.total_seconds():.2f} samples/second)")
                     print(f"Received {self.sample_count} samples in {1000*dt.total_seconds():.0f}ms ({self.sample_count/dt.total_seconds():.2f} samples/second)")
@@ -639,12 +639,11 @@ def init_argparse() -> argparse.ArgumentParser:
     parser.add_argument("-b", "--buffer", metavar='<samples>', type=int, nargs=1, help=f"Set the chart buffer size (window size) in # of samples (default: {buffer_max_samples})")
     parser.add_argument("-m", "--max-chart", metavar='<samples>', type=int, nargs=1, help=f"Set the chart max # samples displayed (default: {chart_max_samples})")
     parser.add_argument("-r", "--refresh", metavar='<ms>', type=int, nargs=1, help=f"Set the live chart refresh interval in milliseconds (default: {refresh_interval})")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase logging verbosity (can be specified multiple times)")
-    parser.add_argument("-c", "--console", default=False, action="store_true", help="Show the debug messages in the console (combine with -v|--verbose)")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Show the debug messages in the console (can be specified at most 3 times to increase logging verbosity)")
     parser.add_argument("--log-size", metavar='<Mb>', type=float, nargs=1, help=f"Set the log maximum size in megabytes (default: {log_size_bytes/1024/1024:.0f})")
-    parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename and start logging to it")
+    parser.add_argument("-l", "--log-file", metavar="<file>", nargs=1, help=f"Set the debug log filename and start logging to it (always with the highest verbose level)")
     parser.add_argument("--linear", default=False, action="store_true", help="Use a linear current-axis (with toggle-able autoscaling)")
-    parser.add_argument("--switch-theme", default=False, action="store_true", help=f"Switch from the dark to the light theme or vice-versa (currently: {"Light" if light_theme else "Dark"})")
+    parser.add_argument("--switch-theme", default=False, action="store_true", help=f"Switch from the dark to the light theme or vice-versa (currently: {'Light' if light_theme else 'Dark'})")
 
     parser.set_defaults(gui=True)
     return parser
@@ -668,6 +667,9 @@ def main():
 
     if not (args.port or args.input):
         parser.error("Use (at least) one of the above calls to use this script")
+
+    if args.port and args.input:
+        ignore_string = ignore_string + f"-p|--port {args.port[0]} "
 
     if args.log_file:
         logfile = args.log_file[0]
@@ -711,10 +713,10 @@ def main():
     # Disable matplotlib logging for fonts, seems to be quite noisy
     logging.getLogger("matplotlib.font_manager").disabled = True
 
-    if args.console or args.log_file:
+    if (args.verbose>0) or args.log_file:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    if args.console:
+    if args.verbose>0:
         print("Setting console logging")
         console_logger = logging.StreamHandler()
         console_logger.setLevel(logging_level)
